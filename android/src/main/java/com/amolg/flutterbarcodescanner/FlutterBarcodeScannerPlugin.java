@@ -19,14 +19,15 @@ public class FlutterBarcodeScannerPlugin implements
     FlutterPlugin, 
     ActivityAware, 
     MethodChannel.MethodCallHandler, 
-    EventChannel.StreamHandler {
+    EventChannel.StreamHandler,
+    BarcodeResultListener {
 
     private MethodChannel channel;
     private EventChannel eventChannel;
     private Activity activity;
     private ActivityPluginBinding activityBinding;
     private Result pendingResult;
-    private final int RC_BARCODE_CAPTURE = 9001;
+    private static final int RC_BARCODE_CAPTURE = 9001;
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
@@ -46,15 +47,9 @@ public class FlutterBarcodeScannerPlugin implements
             if (requestCode == RC_BARCODE_CAPTURE) {
                 if (resultCode == Activity.RESULT_OK && data != null) {
                     String barcode = data.getStringExtra("barcode_result");
-                    if (pendingResult != null) {
-                        pendingResult.success(barcode);
-                        pendingResult = null;
-                    }
-                } else {
-                    if (pendingResult != null) {
-                        pendingResult.success("");
-                        pendingResult = null;
-                    }
+                    onBarcodeResult(barcode);
+                } else if (resultCode == Activity.RESULT_CANCELED) {
+                    onCancel();
                 }
                 return true;
             }
@@ -92,6 +87,30 @@ public class FlutterBarcodeScannerPlugin implements
         intent.putExtra("is_continuous_scan", isContinuousScan);
         intent.putExtra("scan_mode", scanMode);
         activity.startActivityForResult(intent, RC_BARCODE_CAPTURE);
+    }
+
+    @Override
+    public void onBarcodeResult(String barcode) {
+        if (pendingResult != null) {
+            pendingResult.success(barcode);
+            pendingResult = null;
+        }
+    }
+
+    @Override
+    public void onError(String error) {
+        if (pendingResult != null) {
+            pendingResult.error("SCAN_ERROR", error, null);
+            pendingResult = null;
+        }
+    }
+
+    @Override
+    public void onCancel() {
+        if (pendingResult != null) {
+            pendingResult.success("");
+            pendingResult = null;
+        }
     }
 
     @Override
